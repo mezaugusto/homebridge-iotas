@@ -18,8 +18,9 @@ This problem is also observed on the first-party IOTAS app. (More research is ne
 
 ## Currently supports
 - Switch
+- Door (See [Will not fix](#will-not-fix))
 - Outlet (Broken)
-- Light (e.g. brightness levels)
+- Light (e.g., brightness levels)
 - Thermostats
 
 # Installation
@@ -28,11 +29,13 @@ This problem is also observed on the first-party IOTAS app. (More research is ne
 3. Update your configuration file. See the sample below.
 
 # NPM link / sideload (not published on npm)
-1. git clone
-2. npm install typescript
-3. npx tsc
-4. npm link
-
+1. `git clone [repo link]`
+2. `cd homebridge-iotas-test`
+3. `npm install typescript`
+4. `npx tsc`
+5. `npm link`
+   
+Then start Homebridge with the D flag `homebridge -D`
 
 # Configuration
 Configuration sample:
@@ -40,7 +43,7 @@ Configuration sample:
  ```javascript
 "platforms": [
   {
-    "platform" : "homebridge-iotas",
+    "platform" : "homebridge-iotas-test", // This is determined by the platform name under app/index.ts
     "name" : "Iotas",
     "username": "[My_iotas_username]",
     "password": "[My_iotas_password]",
