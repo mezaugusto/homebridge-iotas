@@ -23,7 +23,7 @@ This problem is also observed on the first-party IOTAS app. (More research is ne
 - Light (e.g., brightness levels)
 - Thermostats
 
-# Installation
+# Installation (Ignore since this is for the official published plugin)
 1. Install homebridge using: `npm install -g homebridge`
 2. Install this plugin using: `npm install -g homebridge-iotas`
 3. Update your configuration file. See the sample below.
