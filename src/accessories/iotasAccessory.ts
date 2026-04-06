@@ -32,9 +32,9 @@ export class IotasAccessory {
       Characteristic: platform.Characteristic,
     };
 
-    const manufacturer = this.device.physicalDeviceDescription?.manufacturer ?? 'IOTAS';
-    const model = this.device.physicalDeviceDescription?.name ?? this.device.category ?? FEATURE_CATEGORIES.LIGHT;
-    const serialNumber = this.device.serialNumber ?? `IOTAS-${this.device.id}`;
+    const manufacturer = this.device.physicalDeviceDescription?.manufacturer || 'IOTAS';
+    const model = this.device.physicalDeviceDescription?.name || this.device.category || FEATURE_CATEGORIES.LIGHT;
+    const serialNumber = this.device.serialNumber || `IOTAS-${this.device.id}`;
 
     this.accessory
       .getService(this.platform.Service.AccessoryInformation)!
