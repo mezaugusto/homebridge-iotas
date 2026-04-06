@@ -2,28 +2,43 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      dry_run:
-        description: 'Dry run (skip npm publish)'
-        required: false
-        default: false
-        type: boolean
+    branches: [main]
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  ci:
+  check-version:
     runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Check if version needs release
+        id: check
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists, skipping release"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version $VERSION detected, will release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+  ci:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         node-version: [20, 22, 24]
-
     steps:
       - uses: actions/checkout@v4
 
@@ -46,10 +61,10 @@ jobs:
         run: npm test
 
   release:
-    needs: ci
+    needs: [check-version, ci]
+    if: needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     environment: npm
-
     steps:
       - uses: actions/checkout@v4
 
@@ -66,24 +81,19 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Get version from tag
-        id: version
+      - name: Create version tag
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/}"
-          else
-            VERSION="v$(node -p "require('./package.json').version")"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
+          git tag "$VERSION"
+          git push origin "$VERSION"
 
       - name: Extract release notes from CHANGELOG
         id: changelog
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           VERSION_NUMBER="${VERSION#v}"
-
-          # Extract the section for this version from CHANGELOG.md
           NOTES=$(awk -v ver="$VERSION_NUMBER" '
             /^## \[/ {
               if (found) exit
@@ -92,27 +102,22 @@ jobs:
             }
             found { print }
           ' CHANGELOG.md)
-
-          # If no notes found, use a default message
           if [ -z "$NOTES" ]; then
             NOTES="Release $VERSION"
           fi
-
-          # Write to file to preserve newlines
           echo "$NOTES" > release_notes.md
           echo "Release notes extracted"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: ${{ steps.version.outputs.version }}
+          tag_name: ${{ needs.check-version.outputs.version }}
+          name: ${{ needs.check-version.outputs.version }}
           body_path: release_notes.md
           draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          prerelease: ${{ contains(needs.check-version.outputs.version, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to npm
-        if: ${{ !inputs.dry_run }}
         run: npm publish
