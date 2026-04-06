@@ -129,6 +129,30 @@ npm link
 homebridge -D
 ```
 
+#### Commit Messages
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) and [semantic-release](https://github.com/semantic-release/semantic-release) for automated versioning and releases. Your commit messages determine the version bump:
+
+| Prefix                                | Effect        | Example                             |
+| ------------------------------------- | ------------- | ----------------------------------- |
+| `fix:`                                | Patch release | `fix: handle empty serial numbers`  |
+| `feat:`                               | Minor release | `feat: add humidity sensor support` |
+| `feat!:` / `fix!:`                    | Major release | `feat!: drop Node 18 support`       |
+| `chore:`, `docs:`, `ci:`, `refactor:` | No release    | `chore: update dependencies`        |
+
+#### Dry Run
+
+Preview what the next release would look like without publishing:
+
+```bash
+npx \
+  --package semantic-release@25 \
+  --package @semantic-release/changelog \
+  --package @semantic-release/git \
+  --package conventional-changelog-conventionalcommits \
+  semantic-release --dry-run --no-ci
+```
+
 ### Credits
 
 - Forked from [SanTechIT/homebridge-iotas-test](https://github.com/SanTechIT/homebridge-iotas-test)

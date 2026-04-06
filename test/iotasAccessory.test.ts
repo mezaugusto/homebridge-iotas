@@ -194,6 +194,57 @@ describe('IotasAccessory', () => {
       const infoService = accessory.getService(platform.Service.AccessoryInformation);
       assert.ok(infoService);
     });
+
+    it('should use fallback values when device fields are empty strings', () => {
+      setupMockFetch();
+      const api = createMockApi();
+      const mockLog = {
+        info: mock.fn(),
+        warn: mock.fn(),
+        error: mock.fn(),
+        debug: mock.fn(),
+      } as unknown as import('homebridge').Logging;
+      const platform = new IotasPlatform(mockLog, { platform: 'test', name: 'Test' }, api);
+
+      const accessory = new api.platformAccessory('Test Device', 'uuid-123') as PlatformAccessory;
+      accessory.context.device = {
+        id: 42,
+        name: 'Lock',
+        category: 'lock',
+        paired: true,
+        features: [],
+        serialNumber: '',
+        physicalDeviceDescription: {
+          id: 1,
+          name: '',
+          manufacturer: '',
+        },
+      };
+
+      // Override getService to capture setCharacteristic values
+      const setChars: Array<[string, string]> = [];
+      const chainable = {
+        setCharacteristic: (char: string, value: string) => {
+          setChars.push([char, value]);
+          return chainable;
+        },
+      };
+      accessory.getService = () => chainable as unknown as HAPService;
+
+      new IotasAccessory(platform, accessory);
+
+      const serial = setChars.find(([char]) => char === 'SerialNumber');
+      assert.ok(serial, 'SerialNumber characteristic should be set');
+      assert.strictEqual(serial[1], 'IOTAS-42', 'Empty serialNumber should fall back to IOTAS-{id}');
+
+      const manufacturer = setChars.find(([char]) => char === 'Manufacturer');
+      assert.ok(manufacturer, 'Manufacturer characteristic should be set');
+      assert.strictEqual(manufacturer[1], 'IOTAS', 'Empty manufacturer should fall back to IOTAS');
+
+      const model = setChars.find(([char]) => char === 'Model');
+      assert.ok(model, 'Model characteristic should be set');
+      assert.strictEqual(model[1], 'lock', 'Empty model name should fall back to device category');
+    });
   });
 });
 
