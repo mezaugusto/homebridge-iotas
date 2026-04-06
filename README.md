@@ -133,12 +133,12 @@ homebridge -D
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/) and [semantic-release](https://github.com/semantic-release/semantic-release) for automated versioning and releases. Your commit messages determine the version bump:
 
-| Prefix             | Effect        | Example                                   |
-| ------------------ | ------------- | ----------------------------------------- |
-| `fix:`             | Patch release | `fix: handle empty serial numbers`        |
-| `feat:`            | Minor release | `feat: add humidity sensor support`       |
-| `feat!:` / `fix!:` | Major release | `feat!: drop Node 18 support`            |
-| `chore:`, `docs:`, `ci:`, `refactor:` | No release | `chore: update dependencies` |
+| Prefix                                | Effect        | Example                             |
+| ------------------------------------- | ------------- | ----------------------------------- |
+| `fix:`                                | Patch release | `fix: handle empty serial numbers`  |
+| `feat:`                               | Minor release | `feat: add humidity sensor support` |
+| `feat!:` / `fix!:`                    | Major release | `feat!: drop Node 18 support`       |
+| `chore:`, `docs:`, `ci:`, `refactor:` | No release    | `chore: update dependencies`        |
 
 #### Dry Run
 
