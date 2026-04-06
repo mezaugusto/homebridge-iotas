@@ -1,56 +1,140 @@
-# homebridge-iotas
-- Based off of stevesample/homebridge-iotas-switch
-- Based off of kpsuperplane/homebridge-iotas
+<p align="center">
+  <img src="https://github.com/homebridge/branding/raw/latest/logos/homebridge-wordmark-logo-vertical.png" height="150px">
+</p>
 
-## Changes
-- Fixed support for IOTAS API changes (circa 2022)
-- Fixed door showing up as a thermostat.
-- Room Outlet Switch (WIP)
+<span align="center">
 
-## Will not fix
-The door status is broken on IOTAS's API (The door function, however, works just fine).
+# Homebridge IOTAS V2
 
-If you use the keypad or the door is configured to auto-lock, the lock state becomes desynced. 
+[![Downloads](https://img.shields.io/npm/dt/homebridge-iotas-v2)](https://www.npmjs.com/package/homebridge-iotas-v2)
+[![Version](https://img.shields.io/npm/v/homebridge-iotas-v2)](https://www.npmjs.com/package/homebridge-iotas-v2)
+[![Homebridge Discord](https://img.shields.io/discord/432663330281226270?color=728ED5&logo=discord&label=discord)](https://discord.gg/hZubhrz)
 
-As a result, Homekit will show "Locking..." even when the door is locked, and vice versa.
+[![GitHub issues](https://img.shields.io/github/issues/mezaugusto/homebridge-iotas)](https://github.com/mezaugusto/homebridge-iotas/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/mezaugusto/homebridge-iotas)](https://github.com/mezaugusto/homebridge-iotas/pulls)
 
-This problem is also observed on the first-party IOTAS app. (More research is needed for workarounds if any exist)
+</span>
 
-## Currently supports
-- Switch
-- Door (See [Will not fix](#will-not-fix))
-- Outlet (Broken)
-- Light (e.g., brightness levels)
-- Thermostats
+## Homebridge plugin for IOTAS Smart Home
 
-# Installation (Ignore since this is for the official published plugin)
-1. Install homebridge using: `npm install -g homebridge`
-2. Install this plugin using: `npm install -g homebridge-iotas`
-3. Update your configuration file. See the sample below.
+This [Homebridge](https://github.com/homebridge/homebridge) plugin exposes [IOTAS](https://www.iotashome.com/) smart home devices to Apple's [HomeKit](http://www.apple.com/ios/home/).
 
-# NPM link / sideload (not published on npm)
-1. `git clone [repo link]`
-2. `cd homebridge-iotas-test`
-3. `npm install typescript`
-4. `npx tsc`
-5. `npm link`
-   
-Then start Homebridge with the D flag `homebridge -D`
+IOTAS is a smart apartment platform commonly found in multifamily residential buildings. This plugin allows you to control your IOTAS-connected devices through HomeKit, Siri, and the Home app.
 
-# Configuration
-Configuration sample:
+### Supported Devices
 
- ```javascript
-"platforms": [
-  {
-    "platform" : "homebridge-iotas-test", // This is determined by the platform name under app/index.ts
-    "name" : "Iotas",
-    "username": "[My_iotas_username]",
-    "password": "[My_iotas_password]",
-    "unit": "[unit_name]" // optional, will default to the first one found
-  }
-]
+| Device Type         | HomeKit Service | Features                         |
+| ------------------- | --------------- | -------------------------------- |
+| **Lights**          | Lightbulb       | On/Off, Brightness               |
+| **Switches**        | Switch          | On/Off                           |
+| **Outlets**         | Switch          | On/Off                           |
+| **Door Locks**      | Lock Mechanism  | Lock/Unlock                      |
+| **Thermostats**     | Thermostat      | Current/Target Temperature, Mode |
+| **Battery Devices** | Battery         | Battery Level, Charging State    |
+
+### Known Limitations
+
+- **Door Lock Status**: The lock status polling from the IOTAS API can become desynced if you use the physical keypad or if the door auto-locks. HomeKit may show "Locking..." even when the door is already locked. This is an IOTAS API limitation also observed in their first-party app.
+
+### Prerequisites
+
+- A working [Homebridge](https://github.com/homebridge/homebridge) installation
+- An IOTAS account with valid credentials
+- Node.js 20.18.0 or later
+
+### Installation
+
+#### Via Homebridge Config UI X (Recommended)
+
+1. Search for `homebridge-iotas-v2` in the Plugins tab
+2. Click **Install**
+3. Configure the plugin in the Settings
+
+#### Via Command Line
+
+```bash
+npm install -g homebridge-iotas-v2
 ```
 
-# License
-See LICENSE file
+### Configuration
+
+Add the following to your Homebridge `config.json`:
+
+```json
+{
+  "platforms": [
+    {
+      "platform": "homebridge-iotas-v2",
+      "name": "IOTAS",
+      "username": "your-email@example.com",
+      "password": "your-password",
+      "unit": "Unit Name"
+    }
+  ]
+}
+```
+
+| Option     | Required | Description                              |
+| ---------- | -------- | ---------------------------------------- |
+| `platform` | Yes      | Must be `homebridge-iotas-v2`            |
+| `name`     | Yes      | Display name for the platform            |
+| `username` | Yes      | Your IOTAS account email                 |
+| `password` | Yes      | Your IOTAS account password              |
+| `unit`     | No       | Unit name (defaults to first unit found) |
+
+### Troubleshooting
+
+#### Debug Mode
+
+Run Homebridge with debug logging enabled:
+
+```bash
+homebridge -D
+```
+
+This will show detailed logs including API requests and device discovery.
+
+#### Common Issues
+
+1. **No devices showing up**: Verify your IOTAS credentials are correct and that you can log into the IOTAS app.
+
+2. **Wrong unit**: If you have access to multiple units, specify the `unit` name in your config.
+
+3. **Devices not responding**: The IOTAS API may be temporarily unavailable. Check your internet connection and try restarting Homebridge.
+
+#### Getting Help
+
+- Check [existing issues](https://github.com/mezaugusto/homebridge-iotas/issues) on GitHub
+- Open a [new issue](https://github.com/mezaugusto/homebridge-iotas/issues/new) with debug logs
+- Join the [Homebridge Discord](https://discord.gg/hZubhrz) community
+
+### Development
+
+```bash
+# Clone the repository
+git clone https://github.com/mezaugusto/homebridge-iotas.git
+cd homebridge-iotas
+
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Run tests
+npm test
+
+# Link for local development
+npm link
+homebridge -D
+```
+
+### Credits
+
+- Forked from [SanTechIT/homebridge-iotas-test](https://github.com/SanTechIT/homebridge-iotas-test)
+- Originally based on work by [stevesample](https://github.com/stevesample/homebridge-iotas-switch) and [kpsuperplane](https://github.com/kpsuperplane/homebridge-iotas)
+- Built with the [Homebridge Plugin Template](https://github.com/homebridge/homebridge-plugin-template)
+
+### License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.

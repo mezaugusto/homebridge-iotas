@@ -1,0 +1,268 @@
+import { describe, it, beforeEach, mock } from 'node:test';
+import assert from 'node:assert';
+import type { PlatformAccessory, Service as HAPService, API } from 'homebridge';
+
+// Mock fetch globally
+const mockFetch = mock.fn<typeof fetch>();
+globalThis.fetch = mockFetch as typeof fetch;
+
+// Import after mocking
+const { IotasAccessory } = await import('../src/accessories/iotasAccessory.js');
+const { IotasPlatform } = await import('../src/platform.js');
+
+// Create mock Homebridge API
+function createMockApi(): API {
+  const mockCharacteristic = {
+    On: 'On',
+    Brightness: 'Brightness',
+    BatteryLevel: 'BatteryLevel',
+    StatusLowBattery: {
+      BATTERY_LEVEL_LOW: 1,
+      BATTERY_LEVEL_NORMAL: 0,
+    },
+    LockCurrentState: {
+      SECURED: 1,
+      UNSECURED: 0,
+    },
+    LockTargetState: 'LockTargetState',
+    CurrentRelativeHumidity: 'CurrentRelativeHumidity',
+    MotionDetected: 'MotionDetected',
+    ContactSensorState: {
+      CONTACT_DETECTED: 0,
+      CONTACT_NOT_DETECTED: 1,
+    },
+    Manufacturer: 'Manufacturer',
+    Model: 'Model',
+    SerialNumber: 'SerialNumber',
+    CurrentTemperature: 'CurrentTemperature',
+    TargetTemperature: 'TargetTemperature',
+    TargetHeatingCoolingState: {
+      OFF: 0,
+      HEAT: 1,
+      COOL: 2,
+      AUTO: 3,
+    },
+    HeatingThresholdTemperature: 'HeatingThresholdTemperature',
+    CoolingThresholdTemperature: 'CoolingThresholdTemperature',
+  };
+
+  const createMockService = () => {
+    const charHandlers: Record<string, { onGet?: () => Promise<unknown>; onSet?: (v: unknown) => Promise<void> }> = {};
+    return {
+      getCharacteristic: (char: string) => ({
+        onGet: (fn: () => Promise<unknown>) => {
+          charHandlers[char] = { ...charHandlers[char], onGet: fn };
+          return {
+            onSet: (setFn: (v: unknown) => Promise<void>) => {
+              charHandlers[char].onSet = setFn;
+            },
+          };
+        },
+        onSet: (fn: (v: unknown) => Promise<void>) => {
+          charHandlers[char] = { ...charHandlers[char], onSet: fn };
+          return {
+            onGet: (getFn: () => Promise<unknown>) => {
+              charHandlers[char].onGet = getFn;
+            },
+          };
+        },
+      }),
+      setCharacteristic: () => ({ setCharacteristic: () => ({ setCharacteristic: () => ({}) }) }),
+      updateCharacteristic: () => {},
+      _handlers: charHandlers,
+    };
+  };
+
+  const mockService = {
+    AccessoryInformation: class {},
+    Switch: class {},
+    LockMechanism: class {},
+    Lightbulb: class {},
+    Thermostat: class {},
+    Battery: class {},
+    HumiditySensor: class {},
+    MotionSensor: class {},
+    ContactSensor: class {},
+  };
+
+  return {
+    hap: {
+      Service: mockService,
+      Characteristic: mockCharacteristic,
+      uuid: { generate: (id: string) => `uuid-${id}` },
+    },
+    platformAccessory: class {
+      displayName: string;
+      context: Record<string, unknown> = {};
+      services: HAPService[] = [];
+      constructor(name: string) {
+        this.displayName = name;
+      }
+      getService() {
+        return createMockService();
+      }
+      addService() {
+        return createMockService();
+      }
+      removeService() {}
+    },
+    on: () => {},
+    registerPlatformAccessories: () => {},
+    unregisterPlatformAccessories: () => {},
+    updatePlatformAccessories: () => {},
+  } as unknown as API;
+}
+
+describe('IotasAccessory', () => {
+  const mockJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTl9.signature';
+
+  function setupMockFetch() {
+    let callIndex = 0;
+    mockFetch.mock.mockImplementation(async () => {
+      callIndex++;
+      if (callIndex === 1) {
+        return new Response(JSON.stringify({ jwt: mockJwt, refresh: 'refresh-token' }), { status: 200 });
+      } else if (callIndex === 2) {
+        return new Response(JSON.stringify({ id: 123 }), { status: 200 });
+      } else if (callIndex === 3) {
+        return new Response(JSON.stringify([{ unit: 1, unitName: 'Unit 1' }]), { status: 200 });
+      }
+      return new Response(JSON.stringify([]), { status: 200 });
+    });
+  }
+
+  beforeEach(() => {
+    mockFetch.mock.resetCalls();
+  });
+
+  describe('AccessoryInformation enrichment', () => {
+    it('should use physicalDeviceDescription when available', () => {
+      setupMockFetch();
+      const api = createMockApi();
+      const mockLog = {
+        info: mock.fn(),
+        warn: mock.fn(),
+        error: mock.fn(),
+        debug: mock.fn(),
+      } as unknown as import('homebridge').Logging;
+      const platform = new IotasPlatform(mockLog, { platform: 'test', name: 'Test' }, api);
+
+      const accessory = new api.platformAccessory('Test Device', 'uuid-123') as PlatformAccessory;
+      accessory.context.device = {
+        id: 1,
+        name: 'Lock',
+        category: 'lock',
+        paired: true,
+        features: [],
+        physicalDeviceDescription: {
+          id: 82,
+          name: 'Yale realLiving Deadbolt Touch Screen',
+          manufacturer: '0x0129',
+        },
+      };
+
+      new IotasAccessory(platform, accessory);
+
+      // The constructor should have set manufacturer and model from physicalDeviceDescription
+      const infoService = accessory.getService(platform.Service.AccessoryInformation);
+      assert.ok(infoService);
+    });
+
+    it('should fall back to defaults when physicalDeviceDescription is absent', () => {
+      setupMockFetch();
+      const api = createMockApi();
+      const mockLog = {
+        info: mock.fn(),
+        warn: mock.fn(),
+        error: mock.fn(),
+        debug: mock.fn(),
+      } as unknown as import('homebridge').Logging;
+      const platform = new IotasPlatform(mockLog, { platform: 'test', name: 'Test' }, api);
+
+      const accessory = new api.platformAccessory('Test Device', 'uuid-123') as PlatformAccessory;
+      accessory.context.device = {
+        id: 1,
+        name: 'Switch',
+        category: 'switch',
+        paired: true,
+        features: [],
+        // No physicalDeviceDescription
+      };
+
+      new IotasAccessory(platform, accessory);
+
+      const infoService = accessory.getService(platform.Service.AccessoryInformation);
+      assert.ok(infoService);
+    });
+  });
+});
+
+describe('Platform device filtering', () => {
+  const mockJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTl9.signature';
+
+  beforeEach(() => {
+    mockFetch.mock.resetCalls();
+  });
+
+  it('should skip unpaired devices', async () => {
+    let callIndex = 0;
+    mockFetch.mock.mockImplementation(async () => {
+      callIndex++;
+      if (callIndex === 1) {
+        return new Response(JSON.stringify({ jwt: mockJwt, refresh: 'refresh-token' }), { status: 200 });
+      } else if (callIndex === 2) {
+        return new Response(JSON.stringify({ id: 123 }), { status: 200 });
+      } else if (callIndex === 3) {
+        return new Response(JSON.stringify([{ unit: 1, unitName: 'Unit 1' }]), { status: 200 });
+      } else {
+        return new Response(
+          JSON.stringify([
+            {
+              id: 1,
+              name: 'Living Room',
+              devices: [
+                {
+                  id: 10,
+                  name: 'Unpaired Switch',
+                  category: 'switch',
+                  paired: false, // Unpaired - should be skipped
+                  features: [{ id: 100, featureTypeName: 'Light', featureTypeCategory: 'light' }],
+                },
+                {
+                  id: 11,
+                  name: 'Paired Switch',
+                  category: 'switch',
+                  paired: true,
+                  features: [
+                    {
+                      id: 101,
+                      featureTypeName: 'Light',
+                      featureTypeCategory: 'light',
+                      eventTypeName: 'OnOff',
+                      featureTypeSettable: true,
+                    },
+                  ],
+                },
+              ],
+            },
+          ]),
+          { status: 200 },
+        );
+      }
+    });
+
+    const api = createMockApi();
+    const mockLog = {
+      info: mock.fn(),
+      warn: mock.fn(),
+      error: mock.fn(),
+      debug: mock.fn(),
+    } as unknown as import('homebridge').Logging;
+    const platform = new IotasPlatform(mockLog, { platform: 'test', name: 'Test' }, api);
+
+    await platform.discoverDevices();
+
+    // Should only have 1 accessory (the paired one), not 2
+    assert.strictEqual(platform.accessories.size, 1);
+  });
+});
