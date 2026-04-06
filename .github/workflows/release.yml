@@ -2,39 +2,16 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
   id-token: write
 
 jobs:
-  check-version:
-    runs-on: ubuntu-latest
-    outputs:
-      should_release: ${{ steps.check.outputs.should_release }}
-      version: ${{ steps.check.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check if version needs release
-        id: check
-        run: |
-          VERSION="v$(node -p "require('./package.json').version")"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
-            echo "Tag $VERSION already exists, skipping release"
-            echo "should_release=false" >> $GITHUB_OUTPUT
-          else
-            echo "New version $VERSION detected, will release"
-            echo "should_release=true" >> $GITHUB_OUTPUT
-          fi
-
   ci:
-    needs: check-version
-    if: needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -61,63 +38,29 @@ jobs:
         run: npm test
 
   release:
-    needs: [check-version, ci]
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: ci
     runs-on: ubuntu-latest
-    environment: npm
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Use Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npm run build
-
-      - name: Create version tag
-        env:
-          VERSION: ${{ needs.check-version.outputs.version }}
-        run: |
-          git tag "$VERSION"
-          git push origin "$VERSION"
-
-      - name: Extract release notes from CHANGELOG
-        id: changelog
-        env:
-          VERSION: ${{ needs.check-version.outputs.version }}
-        run: |
-          VERSION_NUMBER="${VERSION#v}"
-          NOTES=$(awk -v ver="$VERSION_NUMBER" '
-            /^## \[/ {
-              if (found) exit
-              if (index($0, "[" ver "]")) found=1
-              next
-            }
-            found { print }
-          ' CHANGELOG.md)
-          if [ -z "$NOTES" ]; then
-            NOTES="Release $VERSION"
-          fi
-          echo "$NOTES" > release_notes.md
-          echo "Release notes extracted"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.check-version.outputs.version }}
-          name: ${{ needs.check-version.outputs.version }}
-          body_path: release_notes.md
-          draft: false
-          prerelease: ${{ contains(needs.check-version.outputs.version, '-') }}
+      - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to npm
-        run: npm publish
+        run: >
+          npx
+          --package semantic-release@25
+          --package @semantic-release/changelog
+          --package @semantic-release/git
+          --package conventional-changelog-conventionalcommits
+          semantic-release
