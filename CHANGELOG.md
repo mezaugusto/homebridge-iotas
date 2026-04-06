@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * consolidate release and publish into single workflow ([#7](https://github.com/mezaugusto/homebridge-iotas/issues/7)) ([578fdd3](https://github.com/mezaugusto/homebridge-iotas/commit/578fdd39fb9613d36632f464e1879cd80a7bebe0))
 
+## [3.0.2](https://github.com/mezaugusto/homebridge-iotas/compare/v3.0.1...v3.0.2) (2026-04-06)
+
+
+### Bug Fixes
+
+* consolidate release and publish into single workflow ([#7](https://github.com/mezaugusto/homebridge-iotas/issues/7)) ([578fdd3](https://github.com/mezaugusto/homebridge-iotas/commit/578fdd39fb9613d36632f464e1879cd80a7bebe0))
+
 ## [3.0.1](https://github.com/mezaugusto/homebridge-iotas/compare/v3.0.0...v3.0.1) (2026-04-06)
 
 
