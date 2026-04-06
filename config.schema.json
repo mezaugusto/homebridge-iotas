@@ -1,0 +1,54 @@
+{
+  "pluginAlias": "homebridge-iotas-v2",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Homebridge plugin for IOTAS smart home devices.",
+  "footerDisplay": "For more information, see the [README](https://github.com/mezaugusto/homebridge-iotas#readme).",
+  "schema": {
+    "type": "object",
+    "required": ["username", "password"],
+    "properties": {
+      "name": {
+        "title": "Name",
+        "description": "Plugin name as displayed in the Homebridge log.",
+        "type": "string",
+        "default": "IOTAS"
+      },
+      "username": {
+        "title": "Username",
+        "description": "Your IOTAS account email address.",
+        "type": "string",
+        "format": "email",
+        "required": true
+      },
+      "password": {
+        "title": "Password",
+        "description": "Your IOTAS account password.",
+        "type": "string",
+        "required": true
+      },
+      "unit": {
+        "title": "Unit Name",
+        "description": "Optional: Specify the unit name if you have multiple units. Leave empty to use the first unit found.",
+        "type": "string"
+      }
+    }
+  },
+  "form": [
+    "name",
+    {
+      "key": "username",
+      "type": "string",
+      "placeholder": "your@email.com"
+    },
+    {
+      "key": "password",
+      "type": "password"
+    },
+    {
+      "key": "unit",
+      "type": "string",
+      "placeholder": "Leave empty for default"
+    }
+  ]
+}
