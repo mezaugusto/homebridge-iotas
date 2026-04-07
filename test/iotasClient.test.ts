@@ -221,4 +221,34 @@ describe('IotasClient', () => {
       assert.deepStrictEqual(JSON.parse(options.body as string), { value: 1 });
     });
   });
+
+  describe('updateFeatureReliable', () => {
+    it('should send redundant updates for Z-Wave reliability', async () => {
+      let callIndex = 0;
+      mockFetch.mock.mockImplementation(async () => {
+        callIndex++;
+        if (callIndex === 1) {
+          return new Response(JSON.stringify({ jwt: mockJwt, refresh: 'refresh-token' }), { status: 200 });
+        } else {
+          return new Response(JSON.stringify({}), { status: 200 });
+        }
+      });
+
+      await client.updateFeatureReliable('100', 0);
+
+      // Known quirk: some devices miss a single OFF command.
+      // Send multiple identical updates to improve command delivery reliability.
+      assert.strictEqual(mockFetch.mock.callCount(), 4);
+
+      // Verify all 3 update calls went to the correct endpoint
+      for (let i = 1; i <= 3; i++) {
+        const call = mockFetch.mock.calls[i];
+        const url = call.arguments[0] as string;
+        const options = call.arguments[1] as RequestInit;
+        assert.ok(url.includes('/feature/100/value'), `Call ${i} should target feature endpoint`);
+        assert.strictEqual(options.method, 'PUT');
+        assert.deepStrictEqual(JSON.parse(options.body as string), { value: 0 });
+      }
+    });
+  });
 });

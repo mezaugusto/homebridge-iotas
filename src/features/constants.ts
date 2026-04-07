@@ -35,6 +35,20 @@ export const FEATURE_CATEGORIES = {
 } as const;
 
 /**
+ * Canonical IOTAS device categories.
+ */
+export const DEVICE_CATEGORIES = {
+  DIMMER: 'dimmer',
+} as const;
+
+/**
+ * Z-Wave manufacturer IDs for devices with known quirks.
+ */
+export const ZWAVE_MANUFACTURERS = {
+  JASCO: '0x0063',
+} as const;
+
+/**
  * Read-only categories still exposed to HomeKit.
  */
 export const READ_ONLY_FEATURE_CATEGORIES = new Set<string>([

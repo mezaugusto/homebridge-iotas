@@ -8,6 +8,9 @@ const AUTH_RETRY_DELAYS_MS = [60_000, 300_000, 600_000] as const;
 const MAX_AUTH_RETRIES = AUTH_RETRY_DELAYS_MS.length;
 const MAX_REQUEST_AUTH_RETRIES = 1;
 
+const RELIABLE_UPDATE_ATTEMPTS = 3;
+const RELIABLE_UPDATE_DELAY_MS = 500;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -270,6 +273,18 @@ export class IotasClient {
       method: 'PUT',
       body: JSON.stringify({ value }),
     });
+  }
+
+  /**
+   * Send redundant feature updates to improve delivery reliability for known device quirks.
+   */
+  async updateFeatureReliable(featureId: string, value: number): Promise<void> {
+    for (let attempt = 0; attempt < RELIABLE_UPDATE_ATTEMPTS; attempt++) {
+      await this.updateFeature(featureId, value);
+      if (attempt < RELIABLE_UPDATE_ATTEMPTS - 1) {
+        await sleep(RELIABLE_UPDATE_DELAY_MS);
+      }
+    }
   }
   // #endregion
 }
