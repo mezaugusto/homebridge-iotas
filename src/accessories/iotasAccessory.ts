@@ -34,7 +34,9 @@ export class IotasAccessory {
 
     const manufacturer = this.device.physicalDeviceDescription?.manufacturer || 'IOTAS';
     const model = this.device.physicalDeviceDescription?.name || this.device.category || FEATURE_CATEGORIES.LIGHT;
-    const serialNumber = this.device.serialNumber || `IOTAS-${this.device.id}`;
+    // Serial number must be >1 character for HomeKit; fallback to device ID if invalid
+    const rawSerial = this.device.serialNumber;
+    const serialNumber = rawSerial && rawSerial.length > 1 ? rawSerial : `IOTAS-${this.device.id}`;
 
     this.accessory
       .getService(this.platform.Service.AccessoryInformation)!

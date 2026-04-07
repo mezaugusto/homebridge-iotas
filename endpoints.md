@@ -403,6 +403,10 @@ Known feature type categories:
 }
 ```
 
+#### FEATURE VALUE Response ✅
+
+> Returns HTTP 202 Accepted with **empty body** (Content-Length: 0).
+
 ---
 
 #### BUILDING Response ✅

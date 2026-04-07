@@ -220,6 +220,24 @@ describe('IotasClient', () => {
       assert.strictEqual(options.method, 'PUT');
       assert.deepStrictEqual(JSON.parse(options.body as string), { value: 1 });
     });
+
+    it('should handle empty response body (HTTP 202)', async () => {
+      let callIndex = 0;
+      mockFetch.mock.mockImplementation(async () => {
+        callIndex++;
+        if (callIndex === 1) {
+          return new Response(JSON.stringify({ jwt: mockJwt, refresh: 'refresh-token' }), { status: 200 });
+        } else {
+          // Simulate real API: 202 Accepted with empty body
+          return new Response('', { status: 202, headers: { 'Content-Length': '0' } });
+        }
+      });
+
+      // Should not throw "Unexpected end of JSON input"
+      await assert.doesNotReject(async () => {
+        await client.updateFeature('100', 0.5);
+      });
+    });
   });
 
   describe('updateFeatureReliable', () => {

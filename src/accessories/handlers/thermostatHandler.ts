@@ -5,6 +5,8 @@ import {
   DEFAULT_CURRENT_TEMPERATURE_F,
   DEFAULT_HEAT_SETPOINT_F,
   DEFAULT_TARGET_TEMPERATURE_C,
+  THERMOSTAT_MAX_TEMP_C,
+  THERMOSTAT_MIN_TEMP_C,
 } from '../defaults.js';
 import { EVENT_TYPE_NAMES, FEATURE_CATEGORIES } from '../../features/constants.js';
 import type { Device, Feature } from '../../types.js';
@@ -53,6 +55,7 @@ export class ThermostatServiceHandler implements ServiceHandler {
     if (feature.featureTypeCategory === FEATURE_CATEGORIES.HEAT_SET_POINT) {
       service
         .getCharacteristic(Characteristic.HeatingThresholdTemperature)
+        .setProps({ minValue: THERMOSTAT_MIN_TEMP_C, maxValue: THERMOSTAT_MAX_TEMP_C })
         .onGet(async () => {
           const feat = await platform.client.getFeature(feature.id.toString());
           return Temperature.toCelsius(feat?.value ?? DEFAULT_HEAT_SETPOINT_F);
@@ -65,6 +68,7 @@ export class ThermostatServiceHandler implements ServiceHandler {
     if (feature.featureTypeCategory === FEATURE_CATEGORIES.COOL_SET_POINT) {
       service
         .getCharacteristic(Characteristic.CoolingThresholdTemperature)
+        .setProps({ minValue: THERMOSTAT_MIN_TEMP_C, maxValue: THERMOSTAT_MAX_TEMP_C })
         .onGet(async () => {
           const feat = await platform.client.getFeature(feature.id.toString());
           return Temperature.toCelsius(feat?.value ?? DEFAULT_COOL_SETPOINT_F);
@@ -129,6 +133,7 @@ export class ThermostatServiceHandler implements ServiceHandler {
 
     service
       .getCharacteristic(Characteristic.TargetTemperature)
+      .setProps({ minValue: THERMOSTAT_MIN_TEMP_C, maxValue: THERMOSTAT_MAX_TEMP_C })
       .onGet(async () => {
         const modeFeat = await platform.client.getFeature(modeFeature.id.toString());
         const modeValue = modeFeat?.value ?? 0;
