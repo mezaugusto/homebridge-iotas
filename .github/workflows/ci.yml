@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
     branches: [master]
+  # Also run on release-please branch pushes to ensure CI runs on release PRs
+  push:
+    branches: [release-please--branches--master--components--homebridge-iotas-v2]
 
 jobs:
   ci:
