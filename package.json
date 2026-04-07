@@ -1,7 +1,7 @@
 {
   "name": "homebridge-iotas-v2",
   "displayName": "Homebridge IOTAS",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "A homebridge plugin to control IOTAS smart home devices. IOTAS was acquired by ADT in June 2022, IOTAS may transition to the ADT Multifamily app at some point.",
   "type": "module",
   "main": "dist/src/index.js",
