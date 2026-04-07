@@ -245,6 +245,80 @@ describe('IotasAccessory', () => {
       assert.ok(model, 'Model characteristic should be set');
       assert.strictEqual(model[1], 'lock', 'Empty model name should fall back to device category');
     });
+
+    it('should use fallback when serialNumber is too short for HomeKit', () => {
+      setupMockFetch();
+      const api = createMockApi();
+      const mockLog = {
+        info: mock.fn(),
+        warn: mock.fn(),
+        error: mock.fn(),
+        debug: mock.fn(),
+      } as unknown as import('homebridge').Logging;
+      const platform = new IotasPlatform(mockLog, { platform: 'test', name: 'Test' }, api);
+
+      const accessory = new api.platformAccessory('Test Device', 'uuid-123') as PlatformAccessory;
+      accessory.context.device = {
+        id: 147680,
+        name: 'Lock',
+        category: 'lock',
+        paired: true,
+        features: [],
+        serialNumber: '3', // Single character - too short for HomeKit (requires >1)
+      };
+
+      const setChars: Array<[string, string]> = [];
+      const chainable = {
+        setCharacteristic: (char: string, value: string) => {
+          setChars.push([char, value]);
+          return chainable;
+        },
+      };
+      accessory.getService = () => chainable as unknown as HAPService;
+
+      new IotasAccessory(platform, accessory);
+
+      const serial = setChars.find(([char]) => char === 'SerialNumber');
+      assert.ok(serial, 'SerialNumber characteristic should be set');
+      assert.strictEqual(serial[1], 'IOTAS-147680', 'Single-char serialNumber should fall back to IOTAS-{id}');
+    });
+
+    it('should use valid serialNumber when length > 1', () => {
+      setupMockFetch();
+      const api = createMockApi();
+      const mockLog = {
+        info: mock.fn(),
+        warn: mock.fn(),
+        error: mock.fn(),
+        debug: mock.fn(),
+      } as unknown as import('homebridge').Logging;
+      const platform = new IotasPlatform(mockLog, { platform: 'test', name: 'Test' }, api);
+
+      const accessory = new api.platformAccessory('Test Device', 'uuid-123') as PlatformAccessory;
+      accessory.context.device = {
+        id: 100,
+        name: 'Lock',
+        category: 'lock',
+        paired: true,
+        features: [],
+        serialNumber: 'ABC123456', // Valid length
+      };
+
+      const setChars: Array<[string, string]> = [];
+      const chainable = {
+        setCharacteristic: (char: string, value: string) => {
+          setChars.push([char, value]);
+          return chainable;
+        },
+      };
+      accessory.getService = () => chainable as unknown as HAPService;
+
+      new IotasAccessory(platform, accessory);
+
+      const serial = setChars.find(([char]) => char === 'SerialNumber');
+      assert.ok(serial, 'SerialNumber characteristic should be set');
+      assert.strictEqual(serial[1], 'ABC123456', 'Valid serialNumber should be used as-is');
+    });
   });
 });
 

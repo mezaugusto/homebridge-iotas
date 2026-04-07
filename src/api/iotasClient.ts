@@ -183,7 +183,12 @@ export class IotasClient {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
 
-    return response.json() as Promise<T>;
+    // Handle empty responses (e.g., from PUT/DELETE requests)
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    return JSON.parse(text) as T;
   }
   // #endregion
 
