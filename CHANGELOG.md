@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0](https://github.com/mezaugusto/homebridge-iotas/compare/v3.0.4...v3.1.0) (2026-04-25)
+
+
+### Features
+
+* :sparkles: use iotas-ts to improve handling ([#14](https://github.com/mezaugusto/homebridge-iotas/issues/14)) ([2e87637](https://github.com/mezaugusto/homebridge-iotas/commit/2e87637d6e682efd459bd6f346a2bd93535e6b46))
+
 ## [3.0.4](https://github.com/mezaugusto/homebridge-iotas/compare/v3.0.3...v3.0.4) (2026-04-07)
 
 
