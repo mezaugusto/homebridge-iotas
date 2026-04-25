@@ -1,4 +1,5 @@
-import type { Device, Feature } from '../types.js';
+import type { Device, Feature } from 'iotas-ts';
+
 import {
   BatteryServiceHandler,
   ContactSensorHandler,
