@@ -18,14 +18,12 @@
         "title": "Username",
         "description": "Your IOTAS account email address.",
         "type": "string",
-        "format": "email",
-        "required": true
+        "format": "email"
       },
       "password": {
         "title": "Password",
         "description": "Your IOTAS account password.",
-        "type": "string",
-        "required": true
+        "type": "string"
       },
       "unit": {
         "title": "Unit Name",
