@@ -1,7 +1,8 @@
 import type { PlatformAccessory, Service as HAPService } from 'homebridge';
 
+import type { Device, Feature } from 'iotas-ts';
+
 import type { IotasPlatform } from '../platform.js';
-import type { Device, Feature } from '../types.js';
 
 export type ServiceConstructor = abstract new (...args: never[]) => HAPService;
 
@@ -12,6 +13,7 @@ export interface ServiceHandlerContext {
   lastUpdatedBrightness: Record<string, number>;
   Service: IotasPlatform['Service'];
   Characteristic: IotasPlatform['Characteristic'];
+  registerDisposer: (disposer: () => void) => void;
 }
 
 export interface ServiceHandler {

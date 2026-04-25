@@ -1,32 +1,24 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
-import {
-  THERMOSTAT_MIN_TEMP_C,
-  THERMOSTAT_MAX_TEMP_C,
-} from '../src/accessories/defaults.js';
-import { Temperature } from '../src/utils.js';
+import { THERMOSTAT_MIN_TEMP_C, THERMOSTAT_MAX_TEMP_C } from '../src/accessories/defaults.js';
+import { Temperature } from 'iotas-ts';
 
 describe('ThermostatHandler temperature bounds', () => {
   it('should have min temp that accommodates typical low setpoints', () => {
-    // 10°C = 50°F - reasonable minimum for HVAC
     assert.strictEqual(THERMOSTAT_MIN_TEMP_C, 10);
     assert.ok(Temperature.toFahrenheit(THERMOSTAT_MIN_TEMP_C) >= 50);
   });
 
   it('should have max temp that accommodates typical high setpoints', () => {
-    // 38°C = ~100°F - reasonable maximum for HVAC
     assert.strictEqual(THERMOSTAT_MAX_TEMP_C, 38);
     assert.ok(Temperature.toFahrenheit(THERMOSTAT_MAX_TEMP_C) >= 100);
   });
 
   it('should allow 80°F heat setpoint without exceeding bounds', () => {
-    // Real-world case: user sets heat to 80°F
-    // This was causing "exceeded maximum of 25" warnings
     const heatSetpointF = 80;
     const heatSetpointC = Temperature.toCelsius(heatSetpointF);
 
-    // ~26.67°C - must be within bounds
     assert.ok(heatSetpointC >= THERMOSTAT_MIN_TEMP_C, `${heatSetpointC}°C should be >= ${THERMOSTAT_MIN_TEMP_C}°C`);
     assert.ok(heatSetpointC <= THERMOSTAT_MAX_TEMP_C, `${heatSetpointC}°C should be <= ${THERMOSTAT_MAX_TEMP_C}°C`);
   });

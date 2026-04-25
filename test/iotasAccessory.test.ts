@@ -47,10 +47,20 @@ function createMockApi(): API {
   };
 
   const createMockService = () => {
-    const charHandlers: Record<string, { onGet?: () => Promise<unknown>; onSet?: (v: unknown) => Promise<void> }> = {};
+    const charHandlers: Record<string, { onGet?: () => unknown; onSet?: (v: unknown) => Promise<void> }> = {};
+    const setPropsStub = () => ({
+      onGet: (fn: () => unknown) => {
+        return {
+          onSet: (setFn: (v: unknown) => Promise<void>) => {
+            charHandlers.prop = { onGet: fn, onSet: setFn };
+          },
+        };
+      },
+    });
     return {
       getCharacteristic: (char: string) => ({
-        onGet: (fn: () => Promise<unknown>) => {
+        setProps: setPropsStub,
+        onGet: (fn: () => unknown) => {
           charHandlers[char] = { ...charHandlers[char], onGet: fn };
           return {
             onSet: (setFn: (v: unknown) => Promise<void>) => {
@@ -61,7 +71,7 @@ function createMockApi(): API {
         onSet: (fn: (v: unknown) => Promise<void>) => {
           charHandlers[char] = { ...charHandlers[char], onSet: fn };
           return {
-            onGet: (getFn: () => Promise<unknown>) => {
+            onGet: (getFn: () => unknown) => {
               charHandlers[char].onGet = getFn;
             },
           };
@@ -90,13 +100,16 @@ function createMockApi(): API {
       Service: mockService,
       Characteristic: mockCharacteristic,
       uuid: { generate: (id: string) => `uuid-${id}` },
+      HapStatusError: class extends Error {},
     },
     platformAccessory: class {
       displayName: string;
+      UUID: string;
       context: Record<string, unknown> = {};
       services: HAPService[] = [];
-      constructor(name: string) {
+      constructor(name: string, uuid: string) {
         this.displayName = name;
+        this.UUID = uuid;
       }
       getService() {
         return createMockService();
@@ -389,5 +402,8 @@ describe('Platform device filtering', () => {
 
     // Should only have 1 accessory (the paired one), not 2
     assert.strictEqual(platform.accessories.size, 1);
+
+    // Stop cache polling to clean up
+    platform.cache.stop();
   });
 });

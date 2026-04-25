@@ -1,24 +1,29 @@
 import type { CharacteristicValue, Service as HAPService } from 'homebridge';
 
+import type { Device, Feature } from 'iotas-ts';
 import {
-  DEFAULT_COOL_SETPOINT_F,
+  Temperature,
+  findFeatureByCategory,
+  parseThermostatModes,
+  getThermostatModeAt,
+  findThermostatModeIndex,
+  ThermostatMode,
   DEFAULT_CURRENT_TEMPERATURE_F,
   DEFAULT_HEAT_SETPOINT_F,
-  DEFAULT_TARGET_TEMPERATURE_C,
-  THERMOSTAT_MAX_TEMP_C,
-  THERMOSTAT_MIN_TEMP_C,
-} from '../defaults.js';
-import { EVENT_TYPE_NAMES, FEATURE_CATEGORIES } from '../../features/constants.js';
-import type { Device, Feature } from '../../types.js';
-import { Temperature } from '../../utils.js';
+  DEFAULT_COOL_SETPOINT_F,
+} from 'iotas-ts';
+
+import { DEFAULT_TARGET_TEMPERATURE_C, THERMOSTAT_MAX_TEMP_C, THERMOSTAT_MIN_TEMP_C } from '../defaults.js';
+import { EventTypeName, FeatureCategory } from 'iotas-ts';
 import type { ServiceHandler, ServiceHandlerContext } from '../serviceHandler.js';
 import { getOrAddService } from '../serviceUtils.js';
+import { safeSet } from '../handlerUtils.js';
 
 export class ThermostatServiceHandler implements ServiceHandler {
   canHandle(feature: Feature, device: Device): boolean {
     return (
-      (feature.eventTypeName === EVENT_TYPE_NAMES.TEMPERATURE && device.category !== FEATURE_CATEGORIES.LOCK) ||
-      feature.eventTypeName === EVENT_TYPE_NAMES.THERMOSTAT_MODE
+      (feature.eventTypeName === EventTypeName.Temperature && device.category !== FeatureCategory.Lock) ||
+      feature.eventTypeName === EventTypeName.ThermostatMode
     );
   }
 
@@ -31,11 +36,11 @@ export class ThermostatServiceHandler implements ServiceHandler {
 
     const service = getOrAddService(accessory, Service.Thermostat, accessory.displayName);
 
-    if (feature.eventTypeName === EVENT_TYPE_NAMES.TEMPERATURE) {
+    if (feature.eventTypeName === EventTypeName.Temperature) {
       this.initTemperatureCharacteristics(ctx, service, feature);
     }
 
-    if (feature.eventTypeName === EVENT_TYPE_NAMES.THERMOSTAT_MODE) {
+    if (feature.eventTypeName === EventTypeName.ThermostatMode) {
       this.initModeCharacteristics(ctx, service, feature);
     }
 
@@ -44,38 +49,72 @@ export class ThermostatServiceHandler implements ServiceHandler {
 
   private initTemperatureCharacteristics(ctx: ServiceHandlerContext, service: HAPService, feature: Feature): void {
     const { platform, Characteristic, device } = ctx;
+    const featureId = feature.id.toString();
 
-    if (feature.featureTypeCategory === FEATURE_CATEGORIES.CURRENT_TEMPERATURE) {
-      service.getCharacteristic(Characteristic.CurrentTemperature).onGet(async () => {
-        const feat = await platform.client.getFeature(feature.id.toString());
-        return Temperature.toCelsius(feat?.value ?? DEFAULT_CURRENT_TEMPERATURE_F);
+    if (feature.featureTypeCategory === FeatureCategory.CurrentTemperature) {
+      service.getCharacteristic(Characteristic.CurrentTemperature).onGet(() => {
+        const value = platform.cache.get(featureId) ?? DEFAULT_CURRENT_TEMPERATURE_F;
+        return Temperature.toCelsius(value);
       });
+
+      const disposer = platform.cache.subscribe([featureId], (changed) => {
+        const newValue = changed.get(featureId);
+        if (newValue !== undefined) {
+          service.updateCharacteristic(Characteristic.CurrentTemperature, Temperature.toCelsius(newValue));
+        }
+      });
+
+      ctx.registerDisposer(disposer);
     }
 
-    if (feature.featureTypeCategory === FEATURE_CATEGORIES.HEAT_SET_POINT) {
+    if (feature.featureTypeCategory === FeatureCategory.HeatSetPoint) {
       service
         .getCharacteristic(Characteristic.HeatingThresholdTemperature)
         .setProps({ minValue: THERMOSTAT_MIN_TEMP_C, maxValue: THERMOSTAT_MAX_TEMP_C })
-        .onGet(async () => {
-          const feat = await platform.client.getFeature(feature.id.toString());
-          return Temperature.toCelsius(feat?.value ?? DEFAULT_HEAT_SETPOINT_F);
+        .onGet(() => {
+          const value = platform.cache.get(featureId) ?? DEFAULT_HEAT_SETPOINT_F;
+          return Temperature.toCelsius(value);
         })
         .onSet(async (value: CharacteristicValue) => {
-          await platform.client.updateFeature(feature.id.toString(), Temperature.toFahrenheit(value as number));
+          await safeSet(ctx, 'HeatingThresholdTemperature', async () => {
+            const fahrenheit = Temperature.toFahrenheit(value as number);
+            platform.cache.writeThrough(featureId, fahrenheit);
+          });
         });
+
+      const disposer = platform.cache.subscribe([featureId], (changed) => {
+        const newValue = changed.get(featureId);
+        if (newValue !== undefined) {
+          service.updateCharacteristic(Characteristic.HeatingThresholdTemperature, Temperature.toCelsius(newValue));
+        }
+      });
+
+      ctx.registerDisposer(disposer);
     }
 
-    if (feature.featureTypeCategory === FEATURE_CATEGORIES.COOL_SET_POINT) {
+    if (feature.featureTypeCategory === FeatureCategory.CoolSetPoint) {
       service
         .getCharacteristic(Characteristic.CoolingThresholdTemperature)
         .setProps({ minValue: THERMOSTAT_MIN_TEMP_C, maxValue: THERMOSTAT_MAX_TEMP_C })
-        .onGet(async () => {
-          const feat = await platform.client.getFeature(feature.id.toString());
-          return Temperature.toCelsius(feat?.value ?? DEFAULT_COOL_SETPOINT_F);
+        .onGet(() => {
+          const value = platform.cache.get(featureId) ?? DEFAULT_COOL_SETPOINT_F;
+          return Temperature.toCelsius(value);
         })
         .onSet(async (value: CharacteristicValue) => {
-          await platform.client.updateFeature(feature.id.toString(), Temperature.toFahrenheit(value as number));
+          await safeSet(ctx, 'CoolingThresholdTemperature', async () => {
+            const fahrenheit = Temperature.toFahrenheit(value as number);
+            platform.cache.writeThrough(featureId, fahrenheit);
+          });
         });
+
+      const disposer = platform.cache.subscribe([featureId], (changed) => {
+        const newValue = changed.get(featureId);
+        if (newValue !== undefined) {
+          service.updateCharacteristic(Characteristic.CoolingThresholdTemperature, Temperature.toCelsius(newValue));
+        }
+      });
+
+      ctx.registerDisposer(disposer);
 
       this.initTargetTemperature(ctx, service, device);
     }
@@ -83,100 +122,126 @@ export class ThermostatServiceHandler implements ServiceHandler {
 
   private initModeCharacteristics(ctx: ServiceHandlerContext, service: HAPService, feature: Feature): void {
     const { platform, Characteristic } = ctx;
-    const split = feature.values?.split(':') ?? [];
-    const states = split.map((state) => {
-      const s = state.toLowerCase();
-      if (s.includes('heat')) {
-        return Characteristic.TargetHeatingCoolingState.HEAT;
+    const featureId = feature.id.toString();
+    const modes = parseThermostatModes(feature.values);
+
+    const thermostatModeToHomeKit = (mode: ThermostatMode): number => {
+      switch (mode) {
+        case ThermostatMode.Heat:
+          return Characteristic.TargetHeatingCoolingState.HEAT;
+        case ThermostatMode.Cool:
+          return Characteristic.TargetHeatingCoolingState.COOL;
+        case ThermostatMode.Off:
+          return Characteristic.TargetHeatingCoolingState.OFF;
+        case ThermostatMode.Auto:
+        default:
+          return Characteristic.TargetHeatingCoolingState.AUTO;
       }
-      if (s.includes('cool')) {
-        return Characteristic.TargetHeatingCoolingState.COOL;
+    };
+
+    const homeKitToThermostatMode = (hkState: number): ThermostatMode => {
+      switch (hkState) {
+        case Characteristic.TargetHeatingCoolingState.HEAT:
+          return ThermostatMode.Heat;
+        case Characteristic.TargetHeatingCoolingState.COOL:
+          return ThermostatMode.Cool;
+        case Characteristic.TargetHeatingCoolingState.OFF:
+          return ThermostatMode.Off;
+        case Characteristic.TargetHeatingCoolingState.AUTO:
+        default:
+          return ThermostatMode.Auto;
       }
-      if (s.includes('off')) {
-        return Characteristic.TargetHeatingCoolingState.OFF;
-      }
-      return Characteristic.TargetHeatingCoolingState.AUTO;
-    });
+    };
 
     service
       .getCharacteristic(Characteristic.TargetHeatingCoolingState)
-      .onGet(async () => {
-        const feat = await platform.client.getFeature(feature.id.toString());
-        return states[feat?.value ?? 0] ?? Characteristic.TargetHeatingCoolingState.OFF;
+      .onGet(() => {
+        const value = platform.cache.get(featureId) ?? 0;
+        const mode = getThermostatModeAt(modes, value);
+        return thermostatModeToHomeKit(mode);
       })
       .onSet(async (value: CharacteristicValue) => {
-        const stateMap: Record<number, number> = {
-          [Characteristic.TargetHeatingCoolingState.HEAT]: split.findIndex((s) => s.toLowerCase().includes('heat')),
-          [Characteristic.TargetHeatingCoolingState.COOL]: split.findIndex((s) => s.toLowerCase().includes('cool')),
-          [Characteristic.TargetHeatingCoolingState.OFF]: split.findIndex((s) => s.toLowerCase().includes('off')),
-          [Characteristic.TargetHeatingCoolingState.AUTO]: split.findIndex((s) => s.toLowerCase().includes('auto')),
-        };
-
-        const index = stateMap[value as number];
-        if (index >= 0) {
-          await platform.client.updateFeature(feature.id.toString(), index);
-        }
+        await safeSet(ctx, 'TargetHeatingCoolingState', async () => {
+          const targetMode = homeKitToThermostatMode(value as number);
+          const index = findThermostatModeIndex(modes, targetMode);
+          if (index >= 0) {
+            platform.cache.writeThrough(featureId, index);
+          }
+        });
       });
+
+    const disposer = platform.cache.subscribe([featureId], (changed) => {
+      const newValue = changed.get(featureId);
+      if (newValue !== undefined) {
+        const mode = getThermostatModeAt(modes, newValue);
+        service.updateCharacteristic(Characteristic.TargetHeatingCoolingState, thermostatModeToHomeKit(mode));
+      }
+    });
+
+    ctx.registerDisposer(disposer);
   }
 
   private initTargetTemperature(ctx: ServiceHandlerContext, service: HAPService, device: Device): void {
     const { platform, Characteristic } = ctx;
-    const features = {
-      coolSetPoint: device.features.find((f) => f.featureTypeCategory === FEATURE_CATEGORIES.COOL_SET_POINT),
-      heatSetPoint: device.features.find((f) => f.featureTypeCategory === FEATURE_CATEGORIES.HEAT_SET_POINT),
-    };
-    const modeFeature = device.features.find((f) => f.featureTypeCategory === FEATURE_CATEGORIES.THERMOSTAT_MODE);
+    const coolSetPoint = findFeatureByCategory(device, FeatureCategory.CoolSetPoint);
+    const heatSetPoint = findFeatureByCategory(device, FeatureCategory.HeatSetPoint);
+    const modeFeature = findFeatureByCategory(device, FeatureCategory.ThermostatMode);
 
     if (!modeFeature) {
       return;
     }
 
+    const modeFeatureId = modeFeature.id.toString();
+    const coolFeatureId = coolSetPoint?.id.toString();
+    const heatFeatureId = heatSetPoint?.id.toString();
+    const modes = parseThermostatModes(modeFeature.values);
+
+    const getTargetTemperature = (): number => {
+      const modeValue = platform.cache.get(modeFeatureId) ?? 0;
+      const mode = getThermostatModeAt(modes, modeValue);
+
+      if (mode === ThermostatMode.Cool && coolFeatureId) {
+        const value = platform.cache.get(coolFeatureId) ?? DEFAULT_COOL_SETPOINT_F;
+        return Temperature.toCelsius(value);
+      }
+
+      if (mode === ThermostatMode.Heat && heatFeatureId) {
+        const value = platform.cache.get(heatFeatureId) ?? DEFAULT_HEAT_SETPOINT_F;
+        return Temperature.toCelsius(value);
+      }
+
+      if (coolFeatureId && heatFeatureId) {
+        const coolValue = platform.cache.get(coolFeatureId) ?? DEFAULT_COOL_SETPOINT_F;
+        const heatValue = platform.cache.get(heatFeatureId) ?? DEFAULT_HEAT_SETPOINT_F;
+        return (Temperature.toCelsius(coolValue) + Temperature.toCelsius(heatValue)) / 2;
+      }
+
+      return DEFAULT_TARGET_TEMPERATURE_C;
+    };
+
     service
       .getCharacteristic(Characteristic.TargetTemperature)
       .setProps({ minValue: THERMOSTAT_MIN_TEMP_C, maxValue: THERMOSTAT_MAX_TEMP_C })
-      .onGet(async () => {
-        const modeFeat = await platform.client.getFeature(modeFeature.id.toString());
-        const modeValue = modeFeat?.value ?? 0;
-        const mode = (modeFeature.values?.split(':') ?? [])[modeValue]?.toLowerCase() ?? '';
-
-        if (mode.includes('cool') && features.coolSetPoint) {
-          const feat = await platform.client.getFeature(features.coolSetPoint.id.toString());
-          return Temperature.toCelsius(feat?.value ?? DEFAULT_COOL_SETPOINT_F);
-        }
-
-        if (mode.includes('heat') && features.heatSetPoint) {
-          const feat = await platform.client.getFeature(features.heatSetPoint.id.toString());
-          return Temperature.toCelsius(feat?.value ?? DEFAULT_HEAT_SETPOINT_F);
-        }
-
-        if (features.coolSetPoint && features.heatSetPoint) {
-          const coolFeat = await platform.client.getFeature(features.coolSetPoint.id.toString());
-          const heatFeat = await platform.client.getFeature(features.heatSetPoint.id.toString());
-          return (
-            (Temperature.toCelsius(coolFeat?.value ?? DEFAULT_COOL_SETPOINT_F) +
-              Temperature.toCelsius(heatFeat?.value ?? DEFAULT_HEAT_SETPOINT_F)) /
-            2
-          );
-        }
-
-        return DEFAULT_TARGET_TEMPERATURE_C;
-      })
+      .onGet(() => getTargetTemperature())
       .onSet(async (value: CharacteristicValue) => {
-        const modeFeat = await platform.client.getFeature(modeFeature.id.toString());
-        const modeValue = modeFeat?.value ?? 0;
-        const mode = (modeFeature.values?.split(':') ?? [])[modeValue]?.toLowerCase() ?? '';
+        await safeSet(ctx, 'TargetTemperature', async () => {
+          const modeValue = platform.cache.get(modeFeatureId) ?? 0;
+          const mode = getThermostatModeAt(modes, modeValue);
+          const fahrenheit = Temperature.toFahrenheit(value as number);
 
-        if (mode.includes('cool') && features.coolSetPoint) {
-          await platform.client.updateFeature(
-            features.coolSetPoint.id.toString(),
-            Temperature.toFahrenheit(value as number),
-          );
-        } else if (mode.includes('heat') && features.heatSetPoint) {
-          await platform.client.updateFeature(
-            features.heatSetPoint.id.toString(),
-            Temperature.toFahrenheit(value as number),
-          );
-        }
+          if (mode === ThermostatMode.Cool && coolFeatureId) {
+            platform.cache.writeThrough(coolFeatureId, fahrenheit);
+          } else if (mode === ThermostatMode.Heat && heatFeatureId) {
+            platform.cache.writeThrough(heatFeatureId, fahrenheit);
+          }
+        });
       });
+
+    const featureIds = [modeFeatureId, coolFeatureId, heatFeatureId].filter(Boolean) as string[];
+    const disposer = platform.cache.subscribe(featureIds, () => {
+      service.updateCharacteristic(Characteristic.TargetTemperature, getTargetTemperature());
+    });
+
+    ctx.registerDisposer(disposer);
   }
 }

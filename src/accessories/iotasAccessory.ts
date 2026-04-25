@@ -1,21 +1,15 @@
 import type { PlatformAccessory, Service } from 'homebridge';
 
-import { FEATURE_CATEGORIES } from '../features/constants.js';
-import { isSupportedFeature } from '../features/featurePredicates.js';
+import { FeatureCategory, getManufacturer, getModel, getSerialNumber, isSupportedFeature, type Device } from 'iotas-ts';
 import type { IotasPlatform } from '../platform.js';
-import type { Device } from '../types.js';
 import type { ServiceHandlerContext } from './serviceHandler.js';
 import { ServiceHandlerRegistry } from './serviceHandlerRegistry.js';
 
-/**
- * IotasAccessory
- * An instance of this class is created for each accessory registered.
- * Each accessory may expose multiple services based on device features.
- */
 export class IotasAccessory {
   private readonly device: Device;
   private readonly ctx: ServiceHandlerContext;
   private readonly lastUpdatedBrightness: Record<string, number> = {};
+  private readonly subscriptionDisposers: (() => void)[] = [];
 
   constructor(
     private readonly platform: IotasPlatform,
@@ -30,13 +24,11 @@ export class IotasAccessory {
       lastUpdatedBrightness: this.lastUpdatedBrightness,
       Service: platform.Service,
       Characteristic: platform.Characteristic,
+      registerDisposer: (disposer: () => void) => this.registerDisposer(disposer),
     };
-
-    const manufacturer = this.device.physicalDeviceDescription?.manufacturer || 'IOTAS';
-    const model = this.device.physicalDeviceDescription?.name || this.device.category || FEATURE_CATEGORIES.LIGHT;
-    // Serial number must be >1 character for HomeKit; fallback to device ID if invalid
-    const rawSerial = this.device.serialNumber;
-    const serialNumber = rawSerial && rawSerial.length > 1 ? rawSerial : `IOTAS-${this.device.id}`;
+    const manufacturer = getManufacturer(this.device);
+    const model = getModel(this.device) || FeatureCategory.Light;
+    const serialNumber = getSerialNumber(this.device);
 
     this.accessory
       .getService(this.platform.Service.AccessoryInformation)!
@@ -45,6 +37,17 @@ export class IotasAccessory {
       .setCharacteristic(this.platform.Characteristic.SerialNumber, serialNumber);
 
     this.initServices();
+  }
+
+  private registerDisposer(disposer: () => void): void {
+    this.subscriptionDisposers.push(disposer);
+  }
+
+  cleanup(): void {
+    for (const dispose of this.subscriptionDisposers) {
+      dispose();
+    }
+    this.subscriptionDisposers.length = 0;
   }
 
   private initServices(): void {
